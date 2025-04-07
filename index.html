@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>【音伽ねむ】ねむのおうたリスト</title>
+  <style>
+    /* === 基本スタイル === */
+    body {
+      font-family: sans-serif;
+      margin: 10px;
+      background-color: #f8f9fa;
+      font-size: 14px;
+      line-height: 1.4;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      overflow-x: hidden;
+    }
+    h1 {
+      font-size: 1.3em;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .table-container {
+      width: 100%;
+      overflow-y: auto;
+      max-height: 80vh;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      background-color: #fff;
+    }
+    table {
+      border-collapse: collapse;
+      border-spacing: 0;
+      width: 100%;
+      table-layout: fixed;
+      background-color: #fff;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      vertical-align: middle;
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      background-clip: padding-box;
+    }
+    th {
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 0.9em;
+      text-align: center;
+      background-color: #e0e0e0;
+      color: #333;
+      white-space: nowrap;
+    }
+    #loading, #error, #setlist-loading, #setlist-error, #ranking-loading, #ranking-error {
+      margin-top: 20px;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #error, #setlist-error, #ranking-error { color: red; }
+    #noDataMessage, #setlist-noData, #ranking-noData {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: grey;
+    }
+
+    /* --- 見出し行スタイル (セットリスト用) --- */
+    tr.heading-row td {
+      font-weight: bold;
+      text-align: left !important;
+      white-space: normal !important;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    /* --- td 内のリンクスタイル --- */
+    td a {
+      color: #007bff;
+      text-decoration: underline;
+    }
+    #rankingTable td a {
+       color: #0056b3;
+       text-decoration: none;
+    }
+     #rankingTable td a:hover {
+       text-decoration: underline;
+    }
+
+    /* --- 交互色スタイル (セットリスト用) --- */
+    tbody tr.stripe-dodgerblue-odd td { background-color: #D6EBFF; }
+    tbody tr.stripe-gold-odd td { background-color: #FFF8DC; }
+    tbody tr.stripe-mediumorchid-odd td { background-color: #F5ECFF; }
+    tbody tr.stripe-customred-odd td { background-color: #FCE8E8; }
+    tbody tr.stripe-skyblue-odd td { background-color: #E0F8FF; }
+    tbody tr.stripe-dodgerblue-even td, tbody tr.stripe-gold-even td, tbody tr.stripe-mediumorchid-even td,
+    tbody tr.stripe-customred-even td, tbody tr.stripe-skyblue-even td { background-color: #ffffff; }
+
+    /* --- 「初」マーク (セットリスト用) --- */
+    td.col-6.first-time { color: #ff0000; text-align: center; }
+
+    /* === 列の表示/非表示と幅指定 (セットリストテーブル用) === */
+    .col-0, .col-1, .col-7, .col-10, .col-11, .col-12, .col-13 { display: none !important; }
+    .col-2 { width: 2%; text-align: center; white-space: nowrap; } .col-3 { width: 30%; } .col-4 { width: 30%; }
+    .col-5 { width: 2%; text-align: center; white-space: nowrap; } .col-6 { width: 2%; text-align: center; white-space: nowrap; }
+    .col-8 { width: 25%; } .col-9 { width: 9%; }
+
+    /* === ランキングテーブル用のスタイル === */
+    #ranking-area h2 { font-size: 1.2em; margin-bottom: 10px; color: #333; }
+    #ranking-area .table-container { max-height: 75vh; margin-top: 0; }
+    #rankingTable th { background-color: #B0C4DE; color: #333; }
+    #rankingTable .rank-col { width: 10%; text-align: center; } #rankingTable .title-col { width: 45%; }
+    #rankingTable .artist-col { width: 30%; } #rankingTable .count-col { width: 15%; text-align: center; }
+    #rankingTable tbody tr:not(.history-detail-row) td { background-color: #E6F0FA; }
+
+    /* 履歴詳細行 */
+    .history-detail-row td { background-color: #FFFFFF; padding: 0; border-left: none; border-right: none; vertical-align: top; }
+    .history-flex-container { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; padding: 6px 10px; font-size: 0.8em; line-height: 1.3; }
+    .history-item { padding: 1px 4px; white-space: nowrap; border-radius: 3px; vertical-align: middle; display: inline-block; }
+    .history-item a {
+        display: block; text-decoration: none; border: 1px solid transparent; background-color: transparent;
+        padding: inherit; margin: -1px -4px; border-radius: inherit; transition: background-color 0.2s ease, border-color 0.2s ease;
+        white-space: nowrap;
+    }
+    .history-item a[style*="background-color"] { border-color: #cce0ff; background-color: #e7f0ff; }
+    .history-item a:hover { text-decoration: underline; }
+    .history-item a[style*="background-color"]:hover { background-color: #d0e0ff; }
+    .history-item:not(:has(a)) { color: #555; }
+
+    /* === モード切替ボタン === */
+    #mode-selector { margin-bottom: 0px; border-bottom: 1px solid #A9CCE3; padding-bottom: 0; }
+    .mode-button {
+        padding: 8px 15px; font-size: 1em; cursor: pointer; border: 1px solid #A9CCE3; border-bottom: none;
+        background-color: #f0f4f8; color: #337ab7; margin-right: 5px; border-radius: 5px 5px 0 0; outline: none;
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .mode-button.active { background-color: #D6EBFF; color: #0056b3; font-weight: bold; }
+    .mode-button:not(.active):hover { background-color: #e0eaf5; }
+
+    /* === 検索＆凡例エリア === */
+    #search-and-legend-area { margin-bottom: 0px; padding: 10px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0px 0px; border-bottom: none; } /* border削除 */
+    #search-controls { flex-grow: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; min-width: 300px; }
+    .search-group label { margin-right: 3px; font-weight: normal; font-size: 0.9em; }
+    .search-group input[type="text"] { padding: 5px 7px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.95em; }
+    #search-controls button { padding: 5px 12px; font-size: 0.95em; cursor: pointer; }
+    /* 凡例 */
+    #history-legend { font-size: 0.8em; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; flex-shrink: 0; }
+    .legend-item { display: inline-flex; align-items: center; }
+    .legend-color-box { display: inline-block; width: 12px; height: 12px; margin-right: 4px; border: 1px solid rgba(0,0,0,0.2); vertical-align: middle; }
+    .legend-label { vertical-align: middle; }
+
+  /* === スマホ用スタイル (画面幅 767px 以下) === */
+  @media screen and (max-width: 767px) {
+      body {
+        font-size: 11px;
+        margin: 5px;
+      }
+      h1 {
+        font-size: 1.1em;
+        margin-bottom: 6px;
+      }
+      th, td {
+        padding: 4px 5px;
+        vertical-align: top; /* スマホでは上揃え */
+      }
+      th {
+        font-size: 1em; /* ヘッダーフォントサイズ */
+        vertical-align: middle; /* ヘッダーは中央揃え */
+      }
+
+      /* ★ スマホ用 セットリスト列幅 (J列非表示、I列非表示) ★ */
+      /* 表示: C(2), D(3), E(4), F(5), G(6) */
+      /* 合計: 10 + 40 + 35 + 7 + 8 = 100% (調整例) */
+      .col-2 { width: 10%; }
+      .col-3 { width: 40%; } /* 曲名広め */
+      .col-4 { width: 35%; } /* アーティスト名も表示 */
+      .col-5 { width: 7%; }
+      .col-6 { width: 8%; }
+      .col-8 { width: 0%; display: none; } /* I列 非表示 */
+      .col-9 { width: 0%; display: none; } /* J列(日付) 非表示 */
+
+       /* ★ スマホ用 ランキングテーブル列幅 (アーティスト表示・スタイルリセット) ★ */
+       /* Rank, Title, Artist, Count を表示 */
+       /* 合計: 15 + 40 + 25 + 20 = 100% (調整例) */
+      #rankingTable .rank-col { width: 15%; }
+      #rankingTable .title-col { width: 40%; }
+      #rankingTable .artist-col {
+          width: 25%;             /* 幅を設定 */
+          display: table-cell;  /* 表示する */
+          /* font-size と color は削除し、tdのデフォルトを継承 */
+      }
+      #rankingTable .count-col { width: 20%; }
+
+      /* スマホでの履歴詳細行 */
+      .history-flex-container {
+          padding: 5px 8px;
+          font-size: 0.8em; /* 履歴文字は小さめ */
+          gap: 2px 4px;
+          line-height: 1.2;
+      }
+      .history-item {
+          padding: 1px 3px;
+      }
+       .history-item a {
+          margin: -1px -3px;
+       }
+
+      /* ★ スマホでの検索＆凡例エリア ★ */
+      #search-and-legend-area {
+          display: block;
+          padding: 8px 0 0 0; /* 下パディング0維持 */
+          border-bottom: none; /* 線なし確認 */
+          margin-bottom: 5px; /* ★ テーブルとのマージン少し詰める ★ */
+      }
+      #search-controls {
+          display: block;
+          min-width: unset;
+      }
+      .search-group {
+          display: flex;
+          align-items: center;
+          margin-left: 0 !important;
+          gap: 5px;
+      }
+      #search-controls label {
+           display: inline-block;
+           width: 90px;          /* ★ ラベル幅調整 (少し広げる) ★ */
+           text-align: right;    /* ★ 右揃え ★ */
+           margin-right: 0;
+           flex-shrink: 0;
+           font-size: 0.9em;
+       }
+      #search-controls input[type="text"] {
+           width: auto;
+           flex-grow: 1;
+           box-sizing: border-box;
+           padding: 5px 6px;
+           font-size: 1em;
+           min-width: 100px; /* calc(100% - 100px) の方が良い場合も */
+           border: 1px solid #ccc;
+           border-radius: 3px;
+       }
+      #search-controls button { /* クリアボタン */
+            display: block;
+            width: 100%;
+            margin: 8px 0 0 0; /* ★ 上マージン少し詰める ★ */
+            padding: 6px 10px;
+            box-sizing: border-box;
+       }
+       /* ★ スマホでの凡例 (上下余白削除) ★ */
+      #history-legend {
+          position: static;
+          font-size: 0.9em;
+          gap: 3px 10px;
+          justify-content: center;
+          padding: 0;         /* ★ 上下パディング削除 ★ */
+          margin-top: 8px;    /* ★ 検索コントロールとの上マージン調整 ★ */
+          border: none;
+          background-color: transparent;
+          width: 100%;
+      }
+      .legend-color-box {
+          width: 12px;
+          height: 12px;
+          margin-right: 4px;
+      }
+      .legend-label { /* 特に指定なし */ }
+
+      /* モード切替ボタン */
+      .mode-button {
+          padding: 6px 10px;
+          font-size: 0.9em;
+      }
+      /* ランキング見出し */
+      #ranking-area h2 {
+          font-size: 1.1em;
+      }
+  }
+  </style>
+  <!-- Tippy.js は使用しない -->
+</head>
+<body>
+  <h1>ねむのおうたリスト</h1>
+
+  <!-- モード切替ボタン/タブ -->
+  <div id="mode-selector">
+    <button class="mode-button active" data-mode="setlist">セットリスト</button>
+    <button class="mode-button" data-mode="ranking">歌唱回数＋検索</button>
+  </div>
+
+  <!-- セットリスト表示エリア -->
+  <div id="setlist-area">
+    <div id="setlist-loading">セットリスト読み込み中🗝️💭...</div>
+    <div id="setlist-error" style="display: none;"></div>
+    <div id="setlist-noData" style="display: none;">表示できるセットリストデータがありません。</div>
+    <div class="table-container" id="setlist-table-container">
+      <table id="dataTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ランキング表示エリア -->
+  <div id="ranking-area" style="display: none;">
+
+    <!-- 検索＆凡例エリア -->
+    <div id="search-and-legend-area" style="display: flex; flex-wrap: wrap; align-items: center;">
+        <!-- 検索部分 -->
+        <div id="search-controls">
+              <span class="search-group">
+                  <label for="search-title">曲名:</label>
+                  <input type="text" id="search-title" placeholder="曲名で検索">
+              </span>
+              <span class="search-group" style="margin-left: 15px;">
+                  <label for="search-artist">アーティスト名:</label>
+                  <input type="text" id="search-artist" placeholder="アーティスト名で検索">
+              </span>
+              <button id="clear-search-button" style="margin-left: 0px;">クリア</button>
+        </div>
+        <!-- 凡例部分 -->
+        <div id="history-legend">
+              <span class="legend-item"> <span class="legend-color-box" style="background-color: #FFF8DC; border-color: #F0E68C;"></span> <span class="legend-label">歌ってみた</span> </span>
+              <span class="legend-item"> <span class="legend-color-box" style="background-color: #E0F8FF; border-color: #AFEEEE;"></span> <span class="legend-label">歌枠リレー</span> </span>
+              <span class="legend-item"> <span class="legend-color-box" style="background-color: #F5ECFF; border-color: #E6E6FA;"></span> <span class="legend-label">耐久</span> </span>
+              <span class="legend-item"> <span class="legend-color-box" style="background-color: #FFE4E1; border-color: #FFC0CB;"></span> <span class="legend-label">3D LIVE</span> </span>
+        </div>
+    </div>
+
+    <div id="ranking-loading">ランキング集計中🗝️💭...</div>
+    <div id="ranking-error" style="display: none;"></div>
+    <div id="ranking-noData" style="display: none;">ランキングデータがありません。</div>
+
+    <!-- テーブルと凡例をラップしていたコンテナを削除し、凡例は検索エリアに移動 -->
+    <!-- <div id="ranking-content-wrapper" style="position: relative;"> -->
+        <!-- 凡例は上に移動 -->
+        <!-- テーブルコンテナ -->
+        <div class="table-container" id="ranking-table-container">
+          <table id="rankingTable">
+            <thead>
+              <tr>
+                <th class="rank-col">順位</th>
+                <th class="title-col">曲名</th>
+                <th class="artist-col">アーティスト名</th>
+                <th class="count-col">回数</th>
+              </tr>
+            </thead>
+            <tbody id="rankingTableBody">
+              <!-- ランキングデータはここに挿入される -->
+            </tbody>
+          </table>
+        </div>
+    <!-- </div> -->
+
+  </div>
+
+  <script>
+    // === 設定項目 ===
+    const defaultFontColorHex = '#000000';
+
+    // --- DOM要素変数 ---
+    let modeButtons, setlistArea, rankingArea, searchAndLegendArea; // ★ searchArea -> searchAndLegendArea ★
+    let setlistTableBody, setlistTableHead, setlistTableContainer, setlistLoadingDiv, setlistErrorDiv, setlistNoDataDiv;
+    let rankingTableBody, rankingTableHead, rankingTableContainer, rankingLoadingDiv, rankingErrorDiv, rankingNoDataDiv;
+    let searchTitleInput, searchArtistInput, clearSearchButton; // 検索入力欄
+    let historyLegend; // ★ 凡例要素も取得 ★
+
+    // --- 状態管理 ---
+    let currentMode = 'setlist';
+    let isSetlistLoaded = false;
+    let isRankingLoaded = false;
+    let originalRankingData = []; // 元のランキングデータを保持
+
+    // --- 初期処理 ---
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log("DOMContentLoaded: Initializing...");
+
+      // DOM要素取得
+      modeButtons = document.querySelectorAll('.mode-button');
+      setlistArea = document.getElementById('setlist-area');
+      rankingArea = document.getElementById('ranking-area');
+      searchAndLegendArea = document.getElementById('search-and-legend-area'); // ★ ID変更 ★
+
+      // セットリスト用要素
+      setlistTableHead = document.getElementById('dataTable')?.getElementsByTagName('thead')[0];
+      setlistTableBody = document.getElementById('dataTable')?.getElementsByTagName('tbody')[0];
+      setlistTableContainer = document.getElementById('setlist-table-container');
+      setlistLoadingDiv = document.getElementById('setlist-loading');
+      setlistErrorDiv = document.getElementById('setlist-error');
+      setlistNoDataDiv = document.getElementById('setlist-noData');
+
+      // ランキング用要素
+      rankingTableHead = document.getElementById('rankingTable')?.getElementsByTagName('thead')[0];
+      rankingTableBody = document.getElementById('rankingTableBody') || document.getElementById('rankingTable')?.getElementsByTagName('tbody')[0];
+      rankingTableContainer = document.getElementById('ranking-table-container');
+      rankingLoadingDiv = document.getElementById('ranking-loading');
+      rankingErrorDiv = document.getElementById('ranking-error');
+      rankingNoDataDiv = document.getElementById('ranking-noData');
+      historyLegend = document.getElementById('history-legend'); // ★ 凡例取得 ★
+
+      // 検索用要素
+      searchTitleInput = document.getElementById('search-title');
+      searchArtistInput = document.getElementById('search-artist');
+      clearSearchButton = document.getElementById('clear-search-button');
+
+      // 必須要素の存在チェック
+      if (!modeButtons || !setlistArea || !rankingArea || !searchAndLegendArea || // ★ チェック対象変更 ★
+          !setlistTableBody || !rankingTableBody || !setlistLoadingDiv || !rankingLoadingDiv ||
+          !setlistErrorDiv || !rankingErrorDiv || !searchTitleInput || !searchArtistInput || !clearSearchButton ||
+          !setlistTableHead || !setlistTableContainer || !setlistNoDataDiv ||
+          !rankingTableHead || !rankingTableContainer || !rankingNoDataDiv || !historyLegend) { // ★ 凡例もチェック ★
+          console.error("Essential page elements are missing! Initialization aborted.");
+          document.body.innerHTML = '<p style="color: red; font-weight: bold; text-align: center; margin-top: 20px;">ページの読み込みに失敗しました。HTML構造を確認してください。</p>';
+          return;
+      }
+
+      // 初期データ読み込み & イベントリスナー設定
+      if (currentMode === 'setlist') {
+        fetchSetlistData();
+      }
+      setupModeButtons();
+      setupSearchInputs();
+      setupClearButton();
+    });
+
+    // --- モード切替ボタンの設定 ---
+    function setupModeButtons() {
+      if (!modeButtons || modeButtons.length === 0) return;
+      modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const mode = button.dataset.mode;
+          switchMode(mode);
+        });
+      });
+    }
+
+    // --- 検索入力イベントリスナーの設定 ---
+    function setupSearchInputs() {
+        if (!searchTitleInput || !searchArtistInput) return;
+        const filterOnChange = () => {
+            if (currentMode === 'ranking') {
+                filterAndRedrawRankingTable();
+            }
+        };
+        searchTitleInput.addEventListener('input', filterOnChange);
+        searchArtistInput.addEventListener('input', filterOnChange);
+    }
+
+    // --- クリアボタンイベントリスナーの設定 ---
+    function setupClearButton() {
+        if (!clearSearchButton || !searchTitleInput || !searchArtistInput) return;
+        clearSearchButton.addEventListener('click', () => {
+            searchTitleInput.value = '';
+            searchArtistInput.value = '';
+            if (currentMode === 'ranking') {
+                filterAndRedrawRankingTable();
+            }
+        });
+    }
+
+    // --- モード切り替え関数 ---
+    function switchMode(mode) {
+      // ★ searchArea を削除 ★
+      if (mode === currentMode || !setlistArea || !rankingArea || !modeButtons) return;
+
+      console.log(`Switching mode to: ${mode}`);
+      currentMode = mode;
+
+      setlistArea.style.display = 'none';
+      rankingArea.style.display = 'none'; // 検索と凡例を含む
+      modeButtons.forEach(btn => btn.classList.remove('active'));
+
+      if (mode === 'setlist') {
+        setlistArea.style.display = 'block';
+        document.querySelector('.mode-button[data-mode="setlist"]')?.classList.add('active');
+        if (!isSetlistLoaded) {
+            if (setlistTableBody && setlistLoadingDiv) fetchSetlistData();
+            else { console.error("Cannot fetch setlist..."); showErrorMsg('setlist', "ページ要素の問題"); }
+        }
+      } else if (mode === 'ranking') {
+        rankingArea.style.display = 'block';
+        document.querySelector('.mode-button[data-mode="ranking"]')?.classList.add('active');
+        if (!isRankingLoaded) {
+            if (rankingTableBody && rankingLoadingDiv) fetchRankingData();
+            else { console.error("Cannot fetch ranking..."); showErrorMsg('ranking', "ページ要素の問題"); }
+        } else {
+            filterAndRedrawRankingTable();
+        }
+      }
+    }
+
+    // --- セットリストデータ取得と表示 ---
+    async function fetchSetlistData() {
+        if (!setlistLoadingDiv || !setlistErrorDiv || !setlistNoDataDiv || !setlistTableHead || !setlistTableBody || !setlistTableContainer) { console.error("Setlist elements missing..."); return; }
+        console.log("Fetching setlist data...");
+        setlistLoadingDiv.style.display = 'block'; setlistErrorDiv.style.display = 'none'; setlistNoDataDiv.style.display = 'none';
+        setlistTableHead.innerHTML = ''; setlistTableBody.innerHTML = ''; setlistTableContainer.style.display = 'block';
+        isSetlistLoaded = false;
+        const gasApiUrl = "https://script.google.com/macros/s/AKfycby9d_vvcV3LO25LMDKSa4ZZVIYUJxwy6yziHIKDBM26vp_EMfYcs4eS8aE_8DME7_M3/exec";
+        if (!gasApiUrl || gasApiUrl.includes("YOUR_GAS_API_URL_HERE")) { showErrorMsg('setlist', "API URL Error"); if(setlistLoadingDiv)setlistLoadingDiv.style.display='none'; return; }
+        try {
+            const response = await fetch(gasApiUrl);
+            if (!response.ok) { let txt = `API Error ${response.status}`; try{txt+=`: ${await response.text()}`}catch(e){} throw new Error(txt); }
+            const apiData = await response.json();
+            if (apiData.error) { throw new Error(apiData.error); }
+            if (apiData && Array.isArray(apiData) && apiData.length > 0 && Array.isArray(apiData[0])) {
+                  if (apiData[0].length > 0) { if (apiData.length > 1) { drawSetlistTable(apiData); isSetlistLoaded = true; } else { /* header only */ isSetlistLoaded = true; } }
+                  else { /* empty header */ isSetlistLoaded = true; }
+            } else { /* no data */ isSetlistLoaded = true; }
+            // データなしの場合の表示は drawSetlistTable などで行う
+            if (!isSetlistLoaded) {
+                 setlistTableContainer.style.display='none'; setlistNoDataDiv.textContent="表示できるデータがありません。"; setlistNoDataDiv.style.display='block';
+            }
+        } catch (error) { showErrorMsg('setlist', `Fetch failed: ${error.message}`); isSetlistLoaded = false; }
+        finally { if (setlistLoadingDiv) setlistLoadingDiv.style.display = 'none'; }
+    }
+
+
+    // --- ランキングデータ取得と表示 ---
+    async function fetchRankingData() {
+        if (!rankingLoadingDiv || !rankingErrorDiv || !rankingNoDataDiv || !rankingTableBody || !rankingTableContainer) { console.error("Ranking elements missing"); return; }
+        console.log("Fetching ranking data...");
+        rankingLoadingDiv.style.display = 'block'; rankingErrorDiv.style.display = 'none'; rankingNoDataDiv.style.display = 'none';
+        rankingTableBody.innerHTML = ''; rankingTableContainer.style.display = 'block';
+        isRankingLoaded = false; originalRankingData = [];
+        const gasApiUrl = "https://script.google.com/macros/s/AKfycby9d_vvcV3LO25LMDKSa4ZZVIYUJxwy6yziHIKDBM26vp_EMfYcs4eS8aE_8DME7_M3/exec";
+        const rankingApiUrl = gasApiUrl + "?mode=ranking";
+        if (!gasApiUrl || gasApiUrl.includes("YOUR_GAS_API_URL_HERE")) { showErrorMsg('ranking', "API URL Error"); if(rankingLoadingDiv)rankingLoadingDiv.style.display='none'; return; }
+        try {
+            const response = await fetch(rankingApiUrl);
+            if (!response.ok) { let txt = `Ranking API Error ${response.status}`; try{txt+=`: ${await response.text()}`}catch(e){} throw new Error(txt); }
+            const rankingData = await response.json();
+            if (rankingData.error) { throw new Error(rankingData.error); }
+            if (rankingData && Array.isArray(rankingData)) {
+                  originalRankingData = rankingData; filterAndRedrawRankingTable(); isRankingLoaded = true;
+            } else { originalRankingData = []; drawRankingTable([]); isRankingLoaded = true; }
+        } catch (error) { originalRankingData = []; showErrorMsg('ranking', `Fetch failed: ${error.message}`); isRankingLoaded = false; }
+        finally { if (rankingLoadingDiv) rankingLoadingDiv.style.display = 'none'; }
+    }
+
+    // --- セットリストテーブル描画関数 ---
+    function drawSetlistTable(apiData) {
+        if (!setlistTableHead || !setlistTableBody) { console.error("Setlist elements missing!"); return; }
+        console.log("Drawing setlist table...");
+        setlistTableHead.innerHTML = ''; setlistTableBody.innerHTML = '';
+        if (!apiData || apiData.length <= 1 || !Array.isArray(apiData[0]) || apiData[0].length === 0) { // ヘッダー含むデータチェック
+            if(setlistTableContainer) setlistTableContainer.style.display='none';
+            if(setlistNoDataDiv) { setlistNoDataDiv.textContent="表示できるセットリストデータがありません。"; setlistNoDataDiv.style.display='block'; }
+            return;
+        }
+        if(setlistTableContainer) setlistTableContainer.style.display='block';
+        if(setlistNoDataDiv) setlistNoDataDiv.style.display='none';
+
+        const headerRowData = apiData[0]; const headerTr = setlistTableHead.insertRow();
+        headerRowData.forEach(cellData => { if (!cellData) return; const th=document.createElement('th'); th.textContent=cellData.value??''; th.className=getColClass(cellData.originalIndex); headerTr.appendChild(th); });
+        const dataRows = apiData.slice(1);
+        dataRows.forEach(rowData => {
+            const tr = setlistTableBody.insertRow(); const isHeadingRow = rowData.some(c=>c&&c.isHeading); if(isHeadingRow) tr.classList.add('heading-row');
+            rowData.forEach(cellData => { if (!cellData) return; const td=tr.insertCell(); td.className=getColClass(cellData.originalIndex); if(cellData.colspan>1)td.colSpan=cellData.colspan; if(cellData.linkUrl){const l=document.createElement('a');l.href=cellData.linkUrl;l.textContent=cellData.value??'';l.target="_blank";l.rel="noopener noreferrer";td.appendChild(l);}else{td.textContent=cellData.value??'';} if(cellData.isFirstTime)td.classList.add('first-time'); if(cellData.isBold)td.style.fontWeight='bold';});
+        });
+        applyHeadingColors(); applyStripeClasses();
+    }
+
+    // --- ランキング絞り込み＆再描画関数 ---
+    function filterAndRedrawRankingTable() {
+        if (!searchTitleInput || !searchArtistInput || !originalRankingData || !rankingTableBody) { return; }
+        const titleKeyword = searchTitleInput.value.toLowerCase().trim();
+        const artistKeyword = searchArtistInput.value.toLowerCase().trim();
+        const filteredData = originalRankingData.filter(item => {
+            const title=(item.title||'').toLowerCase(); const artist=(item.artist||'').toLowerCase();
+            const titleMatch=titleKeyword===''||title.includes(titleKeyword); const artistMatch=artistKeyword===''||artist.includes(artistKeyword);
+            return titleMatch && artistMatch; // AND検索
+        });
+        drawRankingTable(filteredData);
+    }
+
+    // --- ランキングテーブル描画関数 ---
+    function drawRankingTable(rankingData) {
+      if (!rankingTableBody) { console.error("Ranking tbody missing!"); return; }
+      rankingTableBody.innerHTML = '';
+      if (!rankingData || rankingData.length === 0) {
+          if(rankingTableContainer) rankingTableContainer.style.display = 'none';
+          if(rankingNoDataDiv) { const k1=searchTitleInput?.value.trim()??''; const k2=searchArtistInput?.value.trim()??''; rankingNoDataDiv.textContent=(k1!==''||k2!=='')?`検索結果なし`:"ランキングデータなし"; rankingNoDataDiv.style.display='block'; } return;
+      }
+      if(rankingTableContainer) rankingTableContainer.style.display = 'block';
+      if(rankingNoDataDiv) rankingNoDataDiv.style.display = 'none';
+      const cols = 4;
+      const styles={'歌':{t:'#DAA520',b:'#FFF8DC',d:'#F0E68C'},'リ':{t:'#1E90FF',b:'#E0F8FF',d:'#AFEEEE'},'耐':{t:'#800080',b:'#F5ECFF',d:'#E6E6FA'},'3D':{t:'#DC143C',b:'#FFE4E1',d:'#FFC0CB'}};
+      const defLink={t:'#0056b3',b:'#E7F0FF',d:'#cce0ff'}; const defText={t:'#555',b:'transparent',d:'transparent'};
+
+      rankingData.forEach(item => {
+          const tr=rankingTableBody.insertRow();
+          const rTd=tr.insertCell(); rTd.textContent=item.rank??'-'; rTd.className='rank-col';
+          const tTd=tr.insertCell(); tTd.textContent=item.title??'(不明)'; tTd.className='title-col';
+          const aTd=tr.insertCell(); aTd.textContent=(item.artist&&item.artist!=="")?item.artist:'-'; aTd.className='artist-col';
+          const cTd=tr.insertCell(); cTd.textContent=item.count??'-'; cTd.className='count-col';
+          if (item.history?.length > 0) {
+              const hTr=rankingTableBody.insertRow(); hTr.className='history-detail-row';
+              const hTd=hTr.insertCell(); hTd.colSpan=cols;
+              const flex=document.createElement('div'); flex.className='history-flex-container';
+              item.history.forEach(h => {
+                  const span=document.createElement('span'); span.className='history-item';
+                  const date=h.date||'(日付不明)'; const type=h.type||'';
+                  const style=styles[type]||defLink; const textStyle=defText;
+                  let weight=(type==='歌'||type==='3D')?'bold':'normal';
+                  if(h.url){const a=document.createElement('a');a.href=h.url;a.textContent=date;a.target="_blank";a.rel="noopener noreferrer";a.style.color=style.t;a.style.fontWeight=weight;a.style.backgroundColor=style.b;a.style.borderColor=style.d;span.appendChild(a);}
+                  else{span.textContent=date; span.style.color=textStyle.t; span.style.fontWeight='normal';}
+                  flex.appendChild(span);
+              });
+              hTd.appendChild(flex);
+          }
+      });
+    }
+
+    // --- エラー表示関数 ---
+    function showErrorMsg(mode, message) {
+      let errorDiv, loadingDiv, containerDiv, noDataDiv, tableHead, tableBody;
+      if(mode==='setlist'){errorDiv=setlistErrorDiv;loadingDiv=setlistLoadingDiv;containerDiv=setlistTableContainer;noDataDiv=setlistNoDataDiv;tableHead=setlistTableHead;tableBody=setlistTableBody;}
+      else if(mode==='ranking'){errorDiv=rankingErrorDiv;loadingDiv=rankingLoadingDiv;containerDiv=rankingTableContainer;noDataDiv=rankingNoDataDiv;tableHead=rankingTableHead;tableBody=rankingTableBody;}
+      else{console.error("Unknown mode:", mode); return;}
+      if(loadingDiv)loadingDiv.style.display='none'; if(containerDiv)containerDiv.style.display='none';
+      if(noDataDiv)noDataDiv.style.display='none'; if(tableHead)tableHead.innerHTML=''; if(tableBody)tableBody.innerHTML='';
+      if(errorDiv){errorDiv.textContent="エラー: "+message; errorDiv.style.display='block';}
+      else{console.error(`Error div missing: ${mode}`);} console.error(`Error(mode:${mode}):`, message);
+    }
+
+    // --- 見出し行背景色 (セットリスト用) ---
+    function applyHeadingColors() {
+        if(!setlistTableBody)return; const targetTbody=setlistTableBody;
+        const headingRows=targetTbody.getElementsByClassName('heading-row');
+        const colorMap={'歌':'#FFD700','リ':'#87CEEB','耐':'#BA55D3','3D':'#E06666'}; const defaultBg='#1E90FF';
+        for(let i=0;i<headingRows.length;i++){
+            const hr=headingRows[i]; const htd=hr.querySelector('td'); if(!htd)continue;
+            const nr=hr.nextElementSibling; let bgColor=defaultBg; htd.style.backgroundColor=bgColor;
+            if(nr&&!nr.classList.contains('heading-row')){ const cell=nr.querySelector('td.col-5'); if(cell){ const label=cell.textContent.trim(); const specBg=colorMap[label]; if(specBg){bgColor=specBg;htd.style.backgroundColor=bgColor;}}}
+        }
+    }
+
+    // --- 交互色 (セットリスト用) ---
+    function applyStripeClasses() {
+        if(!setlistTableBody)return; const targetTbody=setlistTableBody;
+        const rows=targetTbody.getElementsByTagName('tr'); let idx=0; let prefix='dodgerblue';
+        const map={'#FFD700':'gold','#87CEEB':'skyblue','#BA55D3':'mediumorchid','#E06666':'customred','#1E90FF':'dodgerblue'};
+        const rgbToHex=(rgb)=>{if(!rgb)return null; if(rgb.startsWith('#'))return rgb.toUpperCase(); const m=rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/); if(!m)return null; return "#"+m.slice(1,4).map(x=>{const h=parseInt(x).toString(16).toUpperCase();return h.length===1?"0"+h:h;}).join('');};
+        for(let i=0;i<rows.length;i++){rows[i].className=rows[i].className.replace(/stripe-\w+-(odd|even)/g,'').trim();}
+        for(let i=0;i<rows.length;i++){
+            const tr=rows[i];
+            if(tr.classList.contains('heading-row')||tr.classList.contains('history-detail-row')){
+                if(tr.classList.contains('heading-row')){idx=0; const htd=tr.querySelector('td'); if(htd){const bg=window.getComputedStyle(htd).backgroundColor; const hex=rgbToHex(bg); prefix='dodgerblue'; if(hex&&map[hex]){prefix=map[hex];}}}
+                continue;
+            }
+            if(window.getComputedStyle(tr).display!=='none'){const cls=`stripe-${prefix}-${(idx%2===0)?'odd':'even'}`; tr.classList.add(cls); idx++;}
+        }
+    }
+
+    // --- 列クラス名取得 ---
+    function getColClass(i){switch(i){case 0:return 'col-0';case 1:return 'col-1';case 2:return 'col-2';case 3:return 'col-3';case 4:return 'col-4';case 5:return 'col-5';case 6:return 'col-6';case 7:return 'col-7';case 8:return 'col-8';case 9:return 'col-9';case 10:return 'col-10';case 11:return 'col-11';case 12:return 'col-12';case 13:return 'col-13';default:return 'col-other';}}
+
+  </script>
+</body>
+</html>
